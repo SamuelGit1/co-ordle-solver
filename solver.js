@@ -31,7 +31,7 @@
 
             const idxSpan = document.createElement('div');
             idxSpan.className = 'row-index';
-            idxSpan.textContent = `${r+1}`;
+            idxSpan.textContent = `${r + 1}`;
             rowDiv.appendChild(idxSpan);
 
             const cellsDiv = document.createElement('div');
@@ -41,12 +41,12 @@
                 const cell = row[c];
                 const cellDiv = document.createElement('div');
                 cellDiv.className = 'cell-clue';
-				
-				// Position number (1-6)
-                    const numberLabel = document.createElement('div');
-                    numberLabel.className = 'cell-number';
-                    numberLabel.textContent = `${c+1}`;
-                    cellDiv.appendChild(numberLabel);
+
+                // Position number (1-6)
+                const numberLabel = document.createElement('div');
+                numberLabel.className = 'cell-number';
+                numberLabel.textContent = `${c + 1}`;
+                cellDiv.appendChild(numberLabel);
 
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -66,26 +66,22 @@
                 stateGroup.className = 'state-group';
 
                 const states = [{
-                        key: 'unknown',
-                        label: '◻️',
-                        title: 'No clue'
-                    },
-                    {
-                        key: 'correct',
-                        label: '🟩',
-                        title: 'Correct position'
-                    },
-                    {
-                        key: 'present',
-                        label: '🟨',
-                        title: 'In word, wrong pos'
-                    },
-                    {
-                        key: 'absent',
-                        label: '⬜',
-                        title: 'Not in word'
-                    }
-                ];
+                    key: 'unknown',
+                    label: '◻️',
+                    title: 'No clue'
+                }, {
+                    key: 'correct',
+                    label: '🟩',
+                    title: 'Correct position'
+                }, {
+                    key: 'present',
+                    label: '🟨',
+                    title: 'In word, wrong pos'
+                }, {
+                    key: 'absent',
+                    label: '⬜',
+                    title: 'Not in word'
+                }];
 
                 states.forEach(st => {
                     const btn = document.createElement('button');
@@ -175,14 +171,18 @@
         return entries;
     }
 
+    // Build constraints: correctPos, notInPosMap, finalExcluded, minCountMap (per letter, max across rows)
     function buildGlobalConstraints(rows) {
         const correctPos = new Array(6).fill(null);
-        const notInPosMap = new Map();
-        const forcedPresent = new Set();
-        const minCountMap = new Map();
-        const absentSet = new Set();
+        const notInPosMap = new Map(); // letter -> Set of forbidden positions (union across rows)
+        const forcedPresent = new Set(); // letters that must appear at least once
+        const absentSet = new Set(); // letters marked absent in any row
+
+        // For each letter, we need the MAXIMUM number of times it appears as correct/present in any single row
+        const perRowCounts = []; // will store array of row-wise letter counts
 
         for (let row of rows) {
+            const rowCounts = {};
             for (let i = 0; i < 6; i++) {
                 const {
                     letter,
@@ -191,22 +191,33 @@
                 if (!letter) continue;
                 if (state === 'correct') {
                     if (correctPos[i] !== null && correctPos[i] !== letter) {
-                        throw new Error(`Conflict: position ${i+1} fixed as '${correctPos[i]}' and '${letter}'`);
+                        throw new Error(`Conflict: position ${i + 1} fixed as '${correctPos[i]}' and '${letter}'`);
                     }
                     correctPos[i] = letter;
                     forcedPresent.add(letter);
-                    minCountMap.set(letter, (minCountMap.get(letter) || 0) + 1);
+                    rowCounts[letter] = (rowCounts[letter] || 0) + 1;
                 } else if (state === 'present') {
                     if (!notInPosMap.has(letter)) notInPosMap.set(letter, new Set());
                     notInPosMap.get(letter).add(i);
                     forcedPresent.add(letter);
-                    minCountMap.set(letter, (minCountMap.get(letter) || 0) + 1);
+                    rowCounts[letter] = (rowCounts[letter] || 0) + 1;
                 } else if (state === 'absent') {
                     absentSet.add(letter);
                 }
             }
+            perRowCounts.push(rowCounts);
         }
 
+        // Compute global min count per letter: maximum of row counts
+        const minCountMap = new Map();
+        for (const rowCounts of perRowCounts) {
+            for (const [letter, cnt] of Object.entries(rowCounts)) {
+                const current = minCountMap.get(letter) || 0;
+                minCountMap.set(letter, Math.max(current, cnt));
+            }
+        }
+
+        // Excluded letters: those in absentSet but not forced present
         const finalExcluded = new Set();
         for (let l of absentSet) {
             if (!forcedPresent.has(l)) finalExcluded.add(l);
@@ -221,20 +232,25 @@
     }
 
     function satisfiesConstraints(word, correctPos, notInPosMap, excludedSet, minCountMap) {
+        // 1) exact positions
         for (let i = 0; i < 6; i++) {
             if (correctPos[i] !== null && word[i] !== correctPos[i]) return false;
         }
+        // 2) letters that must appear (forcedPresent = keys of minCountMap)
         for (let letter of minCountMap.keys()) {
             if (!word.includes(letter)) return false;
         }
+        // 3) forbidden positions for present letters
         for (let [letter, forbiddenSet] of notInPosMap.entries()) {
             for (let pos of forbiddenSet) {
                 if (word[pos] === letter) return false;
             }
         }
+        // 4) excluded letters
         for (let ex of excludedSet) {
             if (word.includes(ex)) return false;
         }
+        // 5) minimum count (max across rows)
         const wordCount = {};
         for (let ch of word) wordCount[ch] = (wordCount[ch] || 0) + 1;
         for (let [letter, requiredMin] of minCountMap.entries()) {
@@ -256,8 +272,7 @@
             const op = m[2];
             const val = parseInt(m[3], 10);
             if (val < 0 || val > 6) throw new Error(`Count out of range 0-6`);
-            let min = 0,
-                max = 6;
+            let min = 0, max = 6;
             if (constraints.has(letter)) {
                 const prev = constraints.get(letter);
                 min = prev.min;
@@ -270,10 +285,7 @@
                 max = val;
             }
             if (min > max) throw new Error(`Contradiction for ${letter}`);
-            constraints.set(letter, {
-                min,
-                max
-            });
+            constraints.set(letter, {min, max});
         }
         return constraints;
     }
@@ -281,10 +293,7 @@
     function applyGlobalDuplicates(word, extraMap) {
         const count = {};
         for (let ch of word) count[ch] = (count[ch] || 0) + 1;
-        for (let [letter, {
-                min,
-                max
-            }] of extraMap.entries()) {
+        for (let [letter, {min, max}] of extraMap.entries()) {
             const c = count[letter] || 0;
             if (c < min || c > max) return false;
         }
@@ -322,17 +331,10 @@
         }
 
         const candidates = [];
-        for (let {
-                word,
-                freq
-            }
-            of entries) {
+        for (let {word, freq} of entries) {
             if (satisfiesConstraints(word, correctPos, notInPosMap, finalExcluded, minCountMap)) {
                 if (applyGlobalDuplicates(word, extraDupMap)) {
-                    candidates.push({
-                        word,
-                        freq
-                    });
+                    candidates.push({word, freq});
                 }
             }
         }
@@ -351,10 +353,7 @@
         }
         const top50 = candidates.slice(0, 50);
         const letterMap = new Map();
-        for (let {
-                word
-            }
-            of candidates) {
+        for (let {word} of candidates) {
             const seen = new Set(word.split(''));
             for (let ch of seen) letterMap.set(ch, (letterMap.get(ch) || 0) + 1);
         }
@@ -365,20 +364,16 @@
                                 ${candidates.length} candidate${candidates.length !== 1 ? 's' : ''} (from ${totalWords} dictionary words)
                             </div>
                             <div class="candidate-list">`;
-        for (let {
-                word,
-                freq
-            }
-            of top50) {
+        for (let {word, freq} of top50) {
             html += `<div class="candidate-row"><span style="font-weight:700; font-family:monospace;">${word.toUpperCase()}</span><span class="freq-badge">freq ${freq}</span></div>`;
         }
-        if (candidates.length > 50) html += `<div class="candidate-row" style="justify-content:center;">+ ${candidates.length-50} more</div>`;
+        if (candidates.length > 50) html += `<div class="candidate-row" style="justify-content:center;">+ ${candidates.length - 50} more</div>`;
         html += `</div><div class="letter-stats"><strong>Letter frequency among candidates</strong><br/><div style="margin-top:8px;">`;
         for (let [ch, cnt] of letterStats.slice(0, 16)) {
             const pct = Math.round((cnt / candidates.length) * 100);
             html += `<span class="stat-tag">${ch.toUpperCase()} : ${cnt} / ${candidates.length} (${pct}%)</span>`;
         }
-        if (letterStats.length > 16) html += `<span class="stat-tag">+${letterStats.length-16} more</span>`;
+        if (letterStats.length > 16) html += `<span class="stat-tag">+${letterStats.length - 16} more</span>`;
         html += `</div><div class="hint">* How many candidate words contain this letter at least once.</div></div></div>`;
         resultsArea.innerHTML = html;
     }
