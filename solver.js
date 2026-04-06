@@ -157,16 +157,17 @@
     function parseWordList(raw) {
         const entries = [];
         const lines = raw.split(/\r?\n/);
-        const regex = /^\s*([a-zA-Z]{6})\s*\(\s*(\d+)\s*\)\s*$/;
+        // Format: word freq
+        const regex = /^\s*([a-zA-Z]{6})\s+(\d+)\s*$/;
         for (let line of lines) {
             line = line.trim();
             if (!line) continue;
             const m = line.match(regex);
-            if (!m) continue;
-            entries.push({
-                word: m[1].toLowerCase(),
-                freq: parseInt(m[2], 10)
-            });
+            if (!m) {
+                console.warn("Skipping invalid line (expected 'word number'):", line);
+                continue;
+            }
+            entries.push({ word: m[1].toLowerCase(), freq: parseInt(m[2], 10) });
         }
         return entries;
     }
@@ -184,10 +185,7 @@
         for (let row of rows) {
             const rowCounts = {};
             for (let i = 0; i < 6; i++) {
-                const {
-                    letter,
-                    state
-                } = row[i];
+                const { letter, state } = row[i];
                 if (!letter) continue;
                 if (state === 'correct') {
                     if (correctPos[i] !== null && correctPos[i] !== letter) {
@@ -285,7 +283,7 @@
                 max = val;
             }
             if (min > max) throw new Error(`Contradiction for ${letter}`);
-            constraints.set(letter, {min, max});
+            constraints.set(letter, { min, max });
         }
         return constraints;
     }
@@ -293,7 +291,7 @@
     function applyGlobalDuplicates(word, extraMap) {
         const count = {};
         for (let ch of word) count[ch] = (count[ch] || 0) + 1;
-        for (let [letter, {min, max}] of extraMap.entries()) {
+        for (let [letter, { min, max }] of extraMap.entries()) {
             const c = count[letter] || 0;
             if (c < min || c > max) return false;
         }
@@ -380,31 +378,31 @@
 
     function setDefaultWordList() {
         wordListTextarea.value = `adjoin (120)
-beacon (78)
-cactus (55)
-desert (210)
-echoes (43)
-forest (187)
-guitar (99)
-harbor (66)
-insect (89)
-jungle (41)
-knight (210)
-locket (32)
-magnet (97)
-nectar (52)
-orchid (33)
-puzzle (76)
-quarry (28)
-ravine (44)
-silver (250)
-throne (142)
-uplift (38)
-violet (91)
-whisky (67)
-xyloid (5)
-yearly (102)
-zigzag (41)`;
+beacon 78
+cactus 55
+desert 210
+echoes 43
+forest 187
+guitar 99
+harbor 66
+insect 89
+jungle 41
+knight 210
+locket 32
+magnet 97
+nectar 52
+orchid 33
+puzzle 76
+quarry 28
+ravine 44
+silver 250
+throne 142
+uplift 38
+violet 91
+whisky 67
+xyloid 5
+yearly 102
+zigzag 41`;
     }
 
     function init() {
