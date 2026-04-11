@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 	<meta name="theme-color" content="#202020">
-    <title>Wordle Solver – Fixed Case Sensitivity</title>
+    <title>Co-ordle Solver</title>
 	<link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -23,9 +23,9 @@
         <div id="guessesContainer" class="guesses-container"></div>
 
         <div class="section-card">
-            <div class="section-title" style="font-weight:700;">Dictionary (6‑letter word + frequency)</div>
+            <div class="section-title" style="font-weight:700;">Dictionary (6-letter word + frequency)</div>
             <textarea id="wordListInput" rows="5"></textarea>
-            <div class="hint">Format: <code>word number</code> per line, e.g. "adjoin (120)"</div>
+            <div class="hint">Format: word freq per line, e.g. "adjoin 120"</div>
         </div>
 
         <div class="section-card">
@@ -39,7 +39,6 @@
         <footer>🟩 = correct position · 🟨 = in word, wrong position · ⬜ = not in word</footer>
     </div>
 </div>
-
 <script src="solver.js"></script>
 </body>
 </html>

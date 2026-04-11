@@ -13,10 +13,7 @@
 
     // Helper: create empty row
     function createEmptyRow() {
-        return Array(6).fill().map(() => ({
-            letter: null,
-            state: 'unknown'
-        }));
+        return Array(6).fill().map(() => ({ letter: null, state: 'absent' }));
     }
 
     // Render all rows
@@ -58,30 +55,28 @@
                         let val = e.target.value.trim().toUpperCase();
                         if (val && !/^[A-Z]$/.test(val)) val = '';
                         guessRows[rowIdx][colIdx].letter = val ? val.toLowerCase() : null;
-                        renderAllRows();
-                    };
+                        renderAllRows();  // re-render to reflect
+
+                        // Auto‑advance to next cell if a valid letter was entered
+                        if (val && /^[A-Z]$/.test(val) && colIdx < 5) {
+                            // find the next input in the same row after re‑render
+                            const currentRowDiv = document.querySelector(`.guess-row[data-row='${rowIdx}']`);
+                            if (currentRowDiv) {
+                                const nextInput = currentRowDiv.querySelectorAll('.cell-input')[colIdx + 1];
+                                if (nextInput) nextInput.focus();
+                            }
+                        }
+                    }
                 })(r, c));
 
                 const stateGroup = document.createElement('div');
                 stateGroup.className = 'state-group';
 
-                const states = [{
-                    key: 'unknown',
-                    label: '◻️',
-                    title: 'No clue'
-                }, {
-                    key: 'correct',
-                    label: '🟩',
-                    title: 'Correct position'
-                }, {
-                    key: 'present',
-                    label: '🟨',
-                    title: 'In word, wrong pos'
-                }, {
-                    key: 'absent',
-                    label: '⬜',
-                    title: 'Not in word'
-                }];
+                const states = [
+                    { key: 'correct', label: '🟩', title: 'Correct position' },
+                    { key: 'present', label: '🟨', title: 'In word, wrong pos' },
+                    { key: 'absent', label: '⬜', title: 'Not in word' }
+                ];
 
                 states.forEach(st => {
                     const btn = document.createElement('button');
@@ -92,7 +87,6 @@
                         if (st.key === 'correct') btn.classList.add('active-green');
                         else if (st.key === 'present') btn.classList.add('active-yellow');
                         else if (st.key === 'absent') btn.classList.add('active-gray');
-                        else btn.classList.add('active-unknown');
                     }
                     btn.dataset.row = r;
                     btn.dataset.col = c;
@@ -146,6 +140,12 @@
     function addNewRow() {
         guessRows.push(createEmptyRow());
         renderAllRows();
+        // Focus the first input of the newly added row
+        const newRowDiv = container.lastElementChild;
+        if (newRowDiv) {
+            const firstInput = newRowDiv.querySelector('.cell-input');
+            if (firstInput) firstInput.focus();
+        }
     }
 
     function clearAllRows() {
@@ -302,7 +302,7 @@
         const rawList = wordListTextarea.value;
         let entries = parseWordList(rawList);
         if (entries.length === 0) {
-            resultsArea.innerHTML = `<div class="error-box">❌ No valid 6‑letter words found. Use format: "word (freq)" per line.</div>`;
+            resultsArea.innerHTML = `<div class="error-box">❌ No valid 6-letter words found. Use format: "word (freq)" per line.</div>`;
             return;
         }
 
@@ -377,7 +377,7 @@
     }
 
     function setDefaultWordList() {
-        wordListTextarea.value = `adjoin (120)
+        wordListTextarea.value = `adjoin 120
 beacon 78
 cactus 55
 desert 210
